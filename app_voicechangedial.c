@@ -1,6 +1,6 @@
 /*
  * Voice Changer for Asterisk 1.2
- * Version 0.4.1
+ * Version 0.5
  *
  * Copyright (C) 2005-2006 J.A. Roberts Tunney
  *
@@ -41,23 +41,39 @@ static char *desc = "\n"
 "Usage VoiceChangeDial(dialstring[|options])\n"
 "\n"
 "Usage:\n"
-"  This app fuctions pretty much the same way as Dial().  You may\n"
-"  also change the pitch of your voice during an active conversation\n"
-"  by pressing * to go down, # to go up.\n"
+"  This app fuctions pretty much the same way as Dial() only you can do\n"
+"  cool stuff like change the pitch of your voice.  Please note that\n"
+"  pitch changes are not very sophisticated, this will not make a man\n"
+"  sound like a woman or vice versa.  It will however do a great job of\n"
+"  masking your voice by making you sound either like a chimpmunk or\n"
+"  Jabba the Hut.\n"
+"\n"
+"  Because this application needs to mangle voice data, it will need to\n"
+"  pass through Asterisk back-to-back.  This means that if you are\n"
+"  switching SIP, the RTP will not pass from phone to phone, but will\n"
+"  be proxied through Asterisk.  Therefore, VoiceChangeDial() will use\n"
+"  considerably more CPU and bandwidth than a normal Dial() operation.\n"
 "\n"
 "Options:\n"
-"  h    -- Hangup if the call was successful\n"
-"  p    -- Apply effect to peer channel instead\n"
 "  P(f) -- Voice pitch in semitones.  Negative is lower, positive\n"
 "          is higher.  Default is -5.0\n"
 "  T(n) -- Dial timeout in seconds.  If not set, waits 60 sec.\n"
 "          for other side to pickup\n"
+"  p    -- Apply effect to peer channel instead\n"
+"  d    -- Allow pitch changes during conversation with '*' and '#'\n"
+"  h    -- Allow caller to hangup the peer by pressing '*'.  This\n"
+"          is different from the behavior of 'h' in previous\n"
+"          releases of the voice changer.  This option trumps 'd'\n"
+"  s    -- Allow peer to hangup themself by pressing '*'.  Mnemonic\n"
+"          is 'suicide'.  This option trumps 'd'\n"
 ;
 
-#define APP_VOICECHANGEDIAL_HANGUP     (1 << 0)
-#define APP_VOICECHANGEDIAL_PITCH      (1 << 1)
-#define APP_VOICECHANGEDIAL_TIMEOUT    (1 << 2)
-#define APP_VOICECHANGEDIAL_PEEREFFECT (1 << 3)
+#define APP_VOICECHANGEDIAL_PITCH      (1 << 0)
+#define APP_VOICECHANGEDIAL_TIMEOUT    (1 << 1)
+#define APP_VOICECHANGEDIAL_PEEREFFECT (1 << 2)
+#define APP_VOICECHANGEDIAL_DYNAMIC    (1 << 3)
+#define APP_VOICECHANGEDIAL_HANGUP     (1 << 4)
+#define APP_VOICECHANGEDIAL_SUICIDE    (1 << 5)
 
 enum {
 	OPT_ARG_VOICECHANGEDIAL_PITCH = 0,
@@ -67,10 +83,12 @@ enum {
 } voicechangedial_option_args;
 
 AST_APP_OPTIONS(voicechangedial_options, {
-	AST_APP_OPTION('h', APP_VOICECHANGEDIAL_HANGUP),
-	AST_APP_OPTION('p', APP_VOICECHANGEDIAL_PEEREFFECT),
 	AST_APP_OPTION_ARG('P', APP_VOICECHANGEDIAL_PITCH, OPT_ARG_VOICECHANGEDIAL_PITCH),
 	AST_APP_OPTION_ARG('T', APP_VOICECHANGEDIAL_TIMEOUT, OPT_ARG_VOICECHANGEDIAL_TIMEOUT),
+	AST_APP_OPTION('p', APP_VOICECHANGEDIAL_PEEREFFECT),
+	AST_APP_OPTION('d', APP_VOICECHANGEDIAL_DYNAMIC),
+	AST_APP_OPTION('h', APP_VOICECHANGEDIAL_HANGUP),
+	AST_APP_OPTION('s', APP_VOICECHANGEDIAL_SUICIDE)
 });
 
 struct voicechangedial_ops {
@@ -123,8 +141,12 @@ static int bridge_audio(const struct voicechangedial_ops *ops, struct ast_channe
 	struct ast_frame *f;
 	int timeout = -1;
 	struct soundtouch *st;
+
 	float pitch = ops->pitch;
-	int peereffect = (ops->options & APP_VOICECHANGEDIAL_PEEREFFECT) == APP_VOICECHANGEDIAL_PEEREFFECT;
+	int op_peereffect = (ops->options & APP_VOICECHANGEDIAL_PEEREFFECT) == APP_VOICECHANGEDIAL_PEEREFFECT;
+	int op_dynamic = (ops->options & APP_VOICECHANGEDIAL_DYNAMIC) == APP_VOICECHANGEDIAL_DYNAMIC;
+	int op_hangup = (ops->options & APP_VOICECHANGEDIAL_HANGUP) == APP_VOICECHANGEDIAL_HANGUP;
+	int op_suicide = (ops->options & APP_VOICECHANGEDIAL_SUICIDE) == APP_VOICECHANGEDIAL_SUICIDE;
 
 	if (!(st = soundtouch_create(pitch)))
 		return -1;
@@ -137,20 +159,31 @@ static int bridge_audio(const struct voicechangedial_ops *ops, struct ast_channe
 			break;
 		switch (f->frametype) {
 		case AST_FRAME_DTMF:
-			if (f->subclass == '*')
-				pitch -= 1;
-			else if (f->subclass == '#')
-				pitch += 1;
-			else {
-				ast_write(inactive, f);
-				break;
+			if (op_hangup && active == chan && f->subclass == '*')
+				goto BREAKBREAK;
+			if (op_suicide && active == peer && f->subclass == '*')
+				goto BREAKBREAK;
+
+			if (op_dynamic && active == (op_peereffect ? peer : chan)) {
+				if (f->subclass == '*') {
+					pitch -= 1;
+					SoundTouch_setPitchSemiTonesFloat(st, pitch);
+					if (option_verbose > 3)
+						ast_verbose(VERBOSE_PREFIX_4 "New pitch is %f semitones\n", pitch);
+					break;
+				} else if (f->subclass == '#') {
+					pitch += 1;
+					SoundTouch_setPitchSemiTonesFloat(st, pitch);
+					if (option_verbose > 3)
+						ast_verbose(VERBOSE_PREFIX_4 "New pitch is %f semitones\n", pitch);
+					break;
+				}
 			}
-			if (option_verbose > 3)
-				ast_verbose(VERBOSE_PREFIX_4 "New pitch is %f semitones\n", pitch);
-			SoundTouch_setPitchSemiTonesFloat(st, pitch);
+
+			ast_write(inactive, f);
 			break;
 		case AST_FRAME_VOICE:
-			if (active == (peereffect ? peer : chan)) {
+			if (pitch != 0.0 && active == (op_peereffect ? peer : chan)) {
 				SoundTouch_putSamples(st, f->data, f->samples);
 				f->samples = SoundTouch_receiveSamplesEx(st, f->data, f->samples);
 			}
@@ -162,6 +195,9 @@ static int bridge_audio(const struct voicechangedial_ops *ops, struct ast_channe
 		channels[0] = inactive;
 		channels[1] = active;
 		ast_frfree(f);
+		continue;
+	BREAKBREAK:
+		break;
 	}
 
 	soundtouch_free(st);
@@ -306,10 +342,7 @@ static int initiate_call(const struct voicechangedial_ops *ops, struct ast_chann
 	res = bridge_audio(ops, peer);
 	ast_playtones_stop(chan);
 
-	if ((ops->options & APP_VOICECHANGEDIAL_HANGUP) == APP_VOICECHANGEDIAL_HANGUP)
-		return -1;
-	else
-		return res;
+	return res;
 }
 
 /*
@@ -436,8 +469,11 @@ static int voicechangedial_app_exec(struct ast_channel *chan, void *data)
 		ops.timeout *= 1000;
 	else
 		ops.timeout = 60000;
-	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_HANGUP) ? APP_VOICECHANGEDIAL_HANGUP : 0;
+
 	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_PEEREFFECT) ? APP_VOICECHANGEDIAL_PEEREFFECT : 0;
+	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_DYNAMIC) ? APP_VOICECHANGEDIAL_DYNAMIC : 0;
+	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_HANGUP) ? APP_VOICECHANGEDIAL_HANGUP : 0;
+	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_SUICIDE) ? APP_VOICECHANGEDIAL_SUICIDE : 0;
 
 	rc = voicechangedial_exec(&ops);
 
