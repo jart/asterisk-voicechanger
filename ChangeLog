@@ -1,3 +1,44 @@
+2006-07-01  J.A. Roberts Tunney  <jtunney@lobstertech.com>
+
+	* voicechanger 0.6
+
+2007-04-03  J.A. Roberts Tunney  <jtunney@lobstertech.com>
+
+	* app_voicechangedial.c: d option is now D(down:up[:delta]).  See
+	  README.  Undocumented backwards compatibility with 0.5 is
+	  preserved...  for now.
+
+	* app_voicechangedial.c: h and s options are now H(x) and S(x).
+	  You can now specify the DTMF digit used to invoke hangup and
+	  suicide.  Undocumented backwards compatibility with 0.5 is being
+	  preserved...  for now.
+
+	* Makefile: Spruced up Makefile style and we'll have the C
+	  compiler generate dependency info instead of that ghetto BSD
+	  script.  We're not using K&R anymore people!!!
+
+	* INSTALL: Removed binary installation junk.  Too much trouble.
+
+2007-01-02  J.A. Roberts Tunney  <jtunney@lobstertech.com>
+
+	* app_voicechangedial.c (initiate_call): Will set
+	  AST_CONTROL_RINGING anyway.  I don't think this should hurt.
+
+	  (initiate_call): Will set the channel back to the old read/write
+	  formats when done.  This way the voice changer won't blow up
+	  with crazy noise if you invoke it twice before the channel
+	  hangs up.
+
+	* app_voicechangedial.c: Added 1.4 compatability.  What a bitch.
+
+2007-01-02  Claude Patry  <cpatry@gmail.com>
+
+	* app_voicechangedial.c (bridge_audio): If you leave the ast_write
+	  in the default it causes all frame to be written.  I tested
+	  calling voicechangedial to chan_local to meetme (without
+	  hardware) and it goes in an infinite loop.  If I comment the
+	  ast_write(), all goes well.
+
 2006-10-07  J.A. Roberts Tunney  <jtunney@lobstertech.com>
 
 	* voicechanger 0.5
@@ -44,6 +85,6 @@
 
 	* voicechanger 0.4
 
-Copyright (c) 2006 J.A. Roberts Tunney
+Copyright (c) 2005-2007 J.A. Roberts Tunney
 Copying and distribution of this file, with or without modification, are
 permitted provided the copyright notice and this notice are preserved.

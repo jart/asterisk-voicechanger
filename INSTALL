@@ -9,9 +9,9 @@
          /.'`\ :;    /'       `-.
         -`    |     |
               :.; : |             Asterisk Voice Changer
-              |:    |                  Version o.5
+              |:    |                  Version o.5.1
               |     |
-              :. :  |   Copyright (c) 2005-2006 J.A. Roberts Tunney
+              :. :  |   Copyright (c) 2005-2007 J.A. Roberts Tunney
             .jgs    ;            Keep it open source pigs
             /:::.    `\
 ----------------------------------------------------------------------
@@ -23,20 +23,14 @@ http://www.lobstertech.com/code/voicechanger/
 REQUIREMENTS
 ----------------------------------------------------------------------
 
- - Asterisk
+ - Asterisk 1.2 or 1.4
+ - Asterisk Development Package (If you installed Asterisk with a
+   package manager like apt-get)
  - SoundTouch >= 1.3.0
  - libsoundtouch4c
 
 ----------------------------------------------------------------------
-BINARY INSTALLATION
-----------------------------------------------------------------------
-
-Check out the binaries folder.  Find the one that's right for you and
-copy it to /usr/lib/asterisk/modules.  Be sure to rename it to:
-app_voicechangedial.so
-
-----------------------------------------------------------------------
-INSTALLATION FROM SOURCE
+INSTALLATION
 ----------------------------------------------------------------------
 
 Run the following commands while inside the source directory for this

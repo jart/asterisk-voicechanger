@@ -1,8 +1,8 @@
 /*
- * Voice Changer for Asterisk 1.2
- * Version 0.5
+ * Voice Changer for Asterisk 1.2 and 1.4
+ * Version 0.6
  *
- * Copyright (C) 2005-2006 J.A. Roberts Tunney
+ * Copyright (C) 2005-2007 J.A Roberts Tunney
  *
  * J.A. Roberts Tunney <jtunney@lobstertech.com>
  *
@@ -18,10 +18,13 @@
  *
  */
 
+#define AST_MODULE "app_voicechangedial"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <soundtouch4c.h>
 #include <asterisk/file.h>
 #include <asterisk/logger.h>
 #include <asterisk/frame.h>
@@ -31,11 +34,19 @@
 #include <asterisk/lock.h>
 #include <asterisk/options.h>
 #include <asterisk/app.h>
+#ifndef _ASTERISK_1_2_
+#include <asterisk/stringfields.h>
+#endif
 
-#include <soundtouch4c.h>
+#ifdef _ASTERISK_1_2_
+#define ast_module_user localuser
+#define ast_module_user_remove LOCAL_USER_REMOVE
+#define ast_module_user_hangup_all() STANDARD_HANGUP_LOCALUSERS
+STANDARD_LOCAL_USER;
+LOCAL_USER_DECL;
+#endif
 
 static char *app = "VoiceChangeDial";
-static char *tdesc = "Voice Changer Dial Application";
 static char *synopsis = "Voice Changer Dial Application";
 static char *desc = "\n"
 "Usage VoiceChangeDial(dialstring[|options])\n"
@@ -55,17 +66,35 @@ static char *desc = "\n"
 "  considerably more CPU and bandwidth than a normal Dial() operation.\n"
 "\n"
 "Options:\n"
+"  p    -- Apply effect to peer channel instead\n"
 "  P(f) -- Voice pitch in semitones.  Negative is lower, positive\n"
 "          is higher.  Default is -5.0\n"
 "  T(n) -- Dial timeout in seconds.  If not set, waits 60 sec.\n"
 "          for other side to pickup\n"
-"  p    -- Apply effect to peer channel instead\n"
-"  d    -- Allow pitch changes during conversation with '*' and '#'\n"
-"  h    -- Allow caller to hangup the peer by pressing '*'.  This\n"
+"  D(down:up[:delta]) -- Allow pitch changes during conversation by\n"
+"          pressing DTMF keys 'up' and 'down' with a semitones change\n"
+"          of 'delta'.  Examples:  D(*:#:5.0), D(1:2).  The default\n"
+"          delta is 5.0 semitones.\n"
+"  H(x) -- Allow caller to hangup the peer by pressing '*'.  This\n"
 "          is different from the behavior of 'h' in previous\n"
 "          releases of the voice changer.  This option trumps 'd'\n"
-"  s    -- Allow peer to hangup themself by pressing '*'.  Mnemonic\n"
-"          is 'suicide'.  This option trumps 'd'\n"
+"  S(x) -- Allow peer to hangup themself by pressing DTMF digit 'x'.\n"
+"          Mnemonic is 'suicide'.\n"
+"  d    -- **DEPRECATED** Allow pitch changes during conversation with\n"
+"          '*' and '#'\n"
+"  h    -- **DEPRECATED** Allow caller to hangup the peer by pressing\n"
+"          '*'.  This is different from the behavior of 'h' in previous\n"
+"          releases of the voice changer.  This option trumps 'd'\n"
+"  s    -- **DEPRECATED** Allow peer to hangup themself by pressing\n"
+"          '*'.  Mnemonic is 'suicide'.  This option trumps 'd'\n"
+"\n"
+"Recommended Invocation:\n"
+"\n"
+"  VoiceChangeDial(SIP/bandwidth/+12036660420|T(30)P(-5.0)D(8:9)H(*))\n"
+"\n"
+"    This will wait 30 seconds for the called party to pickup, make\n"
+"    voice sound lower, and allow you to change your voice down and up\n"
+"    with digits '8' and '9'.  You may also hang up the call with '*'.\n"
 ;
 
 #define APP_VOICECHANGEDIAL_PITCH      (1 << 0)
@@ -74,34 +103,53 @@ static char *desc = "\n"
 #define APP_VOICECHANGEDIAL_DYNAMIC    (1 << 3)
 #define APP_VOICECHANGEDIAL_HANGUP     (1 << 4)
 #define APP_VOICECHANGEDIAL_SUICIDE    (1 << 5)
+#define APP_VOICECHANGEDIAL_DYNAMIC_DEPRECATED    (1 << 6)
+#define APP_VOICECHANGEDIAL_HANGUP_DEPRECATED     (1 << 7)
+#define APP_VOICECHANGEDIAL_SUICIDE_DEPRECATED    (1 << 8)
 
 enum {
 	OPT_ARG_VOICECHANGEDIAL_PITCH = 0,
 	OPT_ARG_VOICECHANGEDIAL_TIMEOUT,
+	OPT_ARG_VOICECHANGEDIAL_DYNAMIC,
+	OPT_ARG_VOICECHANGEDIAL_HANGUP,
+	OPT_ARG_VOICECHANGEDIAL_SUICIDE,
 	/* note: this entry _MUST_ be the last one in the enum */
 	OPT_ARG_VOICECHANGEDIAL_ARRAY_SIZE
 } voicechangedial_option_args;
 
 AST_APP_OPTIONS(voicechangedial_options, {
+	AST_APP_OPTION('p', APP_VOICECHANGEDIAL_PEEREFFECT),
+	AST_APP_OPTION('d', APP_VOICECHANGEDIAL_DYNAMIC_DEPRECATED),
+	AST_APP_OPTION('h', APP_VOICECHANGEDIAL_HANGUP_DEPRECATED),
+	AST_APP_OPTION('s', APP_VOICECHANGEDIAL_SUICIDE_DEPRECATED),
 	AST_APP_OPTION_ARG('P', APP_VOICECHANGEDIAL_PITCH, OPT_ARG_VOICECHANGEDIAL_PITCH),
 	AST_APP_OPTION_ARG('T', APP_VOICECHANGEDIAL_TIMEOUT, OPT_ARG_VOICECHANGEDIAL_TIMEOUT),
-	AST_APP_OPTION('p', APP_VOICECHANGEDIAL_PEEREFFECT),
-	AST_APP_OPTION('d', APP_VOICECHANGEDIAL_DYNAMIC),
-	AST_APP_OPTION('h', APP_VOICECHANGEDIAL_HANGUP),
-	AST_APP_OPTION('s', APP_VOICECHANGEDIAL_SUICIDE)
+	AST_APP_OPTION_ARG('D', APP_VOICECHANGEDIAL_DYNAMIC, OPT_ARG_VOICECHANGEDIAL_DYNAMIC),
+	AST_APP_OPTION_ARG('H', APP_VOICECHANGEDIAL_HANGUP, OPT_ARG_VOICECHANGEDIAL_HANGUP),
+	AST_APP_OPTION_ARG('S', APP_VOICECHANGEDIAL_SUICIDE, OPT_ARG_VOICECHANGEDIAL_SUICIDE)
 });
 
+enum dtmfaction {
+	DTMFACTION_NULL = 0,
+	DTMFACTION_RAISEPITCH,
+	DTMFACTION_LOWERPITCH,
+	DTMFACTION_HANGUP
+};
+
+#define DTMFRANGE ('9' - '#' + 1)
+#define ASCII2DTMF(c) (c - '#')
+#define ISDTMFDIGIT(c) ((c >= '0' && c <= '9') || c == '*' || c == '#')
 struct voicechangedial_ops {
 	struct ast_channel *chan;
 	char *tech;
 	char *dest;
 	int options;
 	float pitch;
+	float pitchdelta;
 	int timeout; /* in milliseconds */
+	enum dtmfaction chan_dtmfactions[DTMFRANGE];
+	enum dtmfaction peer_dtmfactions[DTMFRANGE];
 };
-
-STANDARD_LOCAL_USER;
-LOCAL_USER_DECL;
 
 static struct soundtouch *soundtouch_create(float newPitch)
 {
@@ -141,12 +189,11 @@ static int bridge_audio(const struct voicechangedial_ops *ops, struct ast_channe
 	struct ast_frame *f;
 	int timeout = -1;
 	struct soundtouch *st;
+	float stout[256], stin[256];
+	int n;
 
 	float pitch = ops->pitch;
 	int op_peereffect = (ops->options & APP_VOICECHANGEDIAL_PEEREFFECT) == APP_VOICECHANGEDIAL_PEEREFFECT;
-	int op_dynamic = (ops->options & APP_VOICECHANGEDIAL_DYNAMIC) == APP_VOICECHANGEDIAL_DYNAMIC;
-	int op_hangup = (ops->options & APP_VOICECHANGEDIAL_HANGUP) == APP_VOICECHANGEDIAL_HANGUP;
-	int op_suicide = (ops->options & APP_VOICECHANGEDIAL_SUICIDE) == APP_VOICECHANGEDIAL_SUICIDE;
 
 	if (!(st = soundtouch_create(pitch)))
 		return -1;
@@ -158,39 +205,44 @@ static int bridge_audio(const struct voicechangedial_ops *ops, struct ast_channe
 		if (!(f = ast_read(active)))
 			break;
 		switch (f->frametype) {
-		case AST_FRAME_DTMF:
-			if (op_hangup && active == chan && f->subclass == '*')
+		case AST_FRAME_DTMF: {
+			enum dtmfaction action = DTMFACTION_NULL;
+			if (active == chan)
+				action = ops->chan_dtmfactions[ASCII2DTMF(f->subclass)];
+			else
+				action = ops->peer_dtmfactions[ASCII2DTMF(f->subclass)];
+			switch (action) {
+			case DTMFACTION_NULL:
+				break;
+			case DTMFACTION_RAISEPITCH:
+				pitch += ops->pitchdelta;
+				SoundTouch_setPitchSemiTonesFloat(st, pitch);
+				if (option_verbose > 3)
+					ast_verbose(VERBOSE_PREFIX_4 "New pitch is %f semitones\n", pitch);
+				break;
+			case DTMFACTION_LOWERPITCH:
+				pitch -= ops->pitchdelta;
+				SoundTouch_setPitchSemiTonesFloat(st, pitch);
+				if (option_verbose > 3)
+					ast_verbose(VERBOSE_PREFIX_4 "New pitch is %f semitones\n", pitch);
+				break;
+			case DTMFACTION_HANGUP:
 				goto BREAKBREAK;
-			if (op_suicide && active == peer && f->subclass == '*')
-				goto BREAKBREAK;
-
-			if (op_dynamic && active == (op_peereffect ? peer : chan)) {
-				if (f->subclass == '*') {
-					pitch -= 1;
-					SoundTouch_setPitchSemiTonesFloat(st, pitch);
-					if (option_verbose > 3)
-						ast_verbose(VERBOSE_PREFIX_4 "New pitch is %f semitones\n", pitch);
-					break;
-				} else if (f->subclass == '#') {
-					pitch += 1;
-					SoundTouch_setPitchSemiTonesFloat(st, pitch);
-					if (option_verbose > 3)
-						ast_verbose(VERBOSE_PREFIX_4 "New pitch is %f semitones\n", pitch);
-					break;
-				}
 			}
 
 			ast_write(inactive, f);
 			break;
+		}
 		case AST_FRAME_VOICE:
 			if (pitch != 0.0 && active == (op_peereffect ? peer : chan)) {
 				SoundTouch_putSamples(st, f->data, f->samples);
-				f->samples = SoundTouch_receiveSamplesEx(st, f->data, f->samples);
+				memset(f->data, 0, f->datalen);
+				SoundTouch_receiveSamplesEx(st, f->data, f->samples);
 			}
 			ast_write(inactive, f);
 			break;
 		default:
-			ast_write(inactive, f);
+			break;
 		}
 		channels[0] = inactive;
 		channels[1] = active;
@@ -282,14 +334,26 @@ static int initiate_call(const struct voicechangedial_ops *ops, struct ast_chann
 {
 	int res;
 	struct ast_channel *chan = ops->chan;
+	int oldread, oldwrite;
+
+	oldread = chan->readformat;
+	oldwrite = chan->writeformat;
 
 	/* copy crap over from chan to peer, why isn't there a core function for this? */
 	ast_channel_inherit_variables(chan, peer);
+	ast_set_callerid(peer, chan->cid.cid_name, chan->cid.cid_num, chan->cid.cid_num);
+#ifdef _ASTERISK_1_2_
 	ast_copy_string(peer->language, chan->language, sizeof(peer->language));
 	ast_copy_string(peer->accountcode, chan->accountcode, sizeof(peer->accountcode));
-	peer->cdrflags = chan->cdrflags;
 	if (ast_strlen_zero(peer->musicclass))
 		ast_copy_string(peer->musicclass, chan->musicclass, sizeof(peer->musicclass));
+#else
+	ast_string_field_set(peer, language, chan->language);
+	ast_string_field_set(peer, accountcode, chan->accountcode);
+	if (ast_strlen_zero(peer->musicclass))
+		ast_string_field_set(peer, musicclass, chan->musicclass);
+#endif
+	peer->cdrflags = chan->cdrflags;
 	if (chan->cid.cid_rdnis)
 		peer->cid.cid_rdnis = strdup(chan->cid.cid_rdnis);
 	peer->cid.cid_pres = chan->cid.cid_pres;
@@ -309,17 +373,24 @@ static int initiate_call(const struct voicechangedial_ops *ops, struct ast_chann
 		if (!peer->cid.cid_name)
 			ast_log(LOG_WARNING, "Out of memory\n");
 	}
-	ast_copy_string(peer->accountcode, chan->accountcode, sizeof(peer->accountcode));
 	peer->cdrflags = chan->cdrflags;
 
+	if (ast_set_read_format(chan, AST_FORMAT_SLINEAR)  < 0 ||
+	    ast_set_read_format(peer, AST_FORMAT_SLINEAR)  < 0 ||
+	    ast_set_write_format(chan, AST_FORMAT_SLINEAR) < 0 ||
+	    ast_set_write_format(peer, AST_FORMAT_SLINEAR) < 0) {
+		ast_log(LOG_WARNING, "Unable to set channel i/o to slinear mode\n");
+		return -1;
+	}
+
 	/* call the mofo */
+	ast_indicate(chan, AST_CONTROL_RINGING);
 	if (chan->cdr)
 		ast_cdr_setdestchan(chan->cdr, peer->name);
 	if (ast_call(peer, ops->dest, 0) < 0) {
 		ast_log(LOG_ERROR, "ast_call() failed\n");
 		return -1;
 	}
-
 	res = wait_for_answer(ops, peer, ops->timeout, status, len);
 	if (res <= 0)
 		return res;
@@ -331,6 +402,7 @@ static int initiate_call(const struct voicechangedial_ops *ops, struct ast_chann
 	ast_answer(chan);
 	ast_indicate(chan, -1);
 
+	/* just in case */
 	if (ast_set_read_format(chan, AST_FORMAT_SLINEAR)  < 0 ||
 	    ast_set_read_format(peer, AST_FORMAT_SLINEAR)  < 0 ||
 	    ast_set_write_format(chan, AST_FORMAT_SLINEAR) < 0 ||
@@ -340,7 +412,10 @@ static int initiate_call(const struct voicechangedial_ops *ops, struct ast_chann
 	}
 	
 	res = bridge_audio(ops, peer);
+
 	ast_playtones_stop(chan);
+	ast_set_read_format(chan, oldread);
+	ast_set_write_format(chan, oldwrite);
 
 	return res;
 }
@@ -352,30 +427,34 @@ static int initiate_call(const struct voicechangedial_ops *ops, struct ast_chann
 static int make_call(const struct voicechangedial_ops *ops)
 {
 	int rc;
-	struct localuser *peer;
+	struct ast_module_user *peer;
+	struct ast_channel *peerchan;
 	char status[64] = "";
 	int cause = 0;
 
-	peer = malloc(sizeof(struct localuser));
-	if (!peer) {
-		ast_log(LOG_WARNING, "Out of memory\n");
-		return -1;
-	}
-	memset(peer, 0, sizeof(struct localuser));
-	if (!(peer->chan = ast_request(ops->tech, ops->chan->nativeformats, ops->dest, &cause))) {
+	if (!(peerchan = ast_request(ops->tech, ops->chan->nativeformats, ops->dest, &cause))) {
 		ast_log(LOG_ERROR, "Error creating channel %s/%s\n", ops->tech, ops->dest);
 		ast_cdr_failed(ops->chan->cdr);
 		return -1;
 	}
 
+#ifdef _ASTERISK_1_2_
+	if (!(peer = malloc(sizeof(peer)))) {
+		ast_log(LOG_WARNING, "Out of memory\n");
+		return -1;
+	}
+	memset(peer, 0, sizeof(peer));
 	{
-		struct ast_channel *chan = peer->chan;
+		struct ast_channel *chan = peerchan;
 		LOCAL_USER_ADD(peer);
 	}
+#else
+	peer = ast_module_user_add(peerchan);
+#endif
 
-	rc = initiate_call(ops, peer->chan, status, sizeof(status));
+	rc = initiate_call(ops, peerchan, status, sizeof(status));
 	ast_indicate(ops->chan, -1);
-	ast_hangup(peer->chan);
+	ast_hangup(peerchan);
 
 	if (status[0]) {
 		if (strcmp(status, "BUSY") == 0)
@@ -390,7 +469,7 @@ static int make_call(const struct voicechangedial_ops *ops)
 	} else
 		ast_cdr_failed(ops->chan->cdr);
 
-	LOCAL_USER_REMOVE(peer);
+	ast_module_user_remove(peer);
 
 	return rc;
 }
@@ -402,17 +481,17 @@ static int make_call(const struct voicechangedial_ops *ops)
 static int voicechangedial_exec(const struct voicechangedial_ops *ops)
 {
 	int rc;
-	struct localuser *u;
+	struct ast_module_user *u;
+	struct ast_channel *chan = ops->chan;
 
-	{
-		struct ast_channel *chan = ops->chan;
-		LOCAL_USER_ADD(u);
-	}
+#ifdef _ASTERISK_1_2_
+	LOCAL_USER_ADD(u);
+#else
+	u = ast_module_user_add(chan);
+#endif
 
 	rc = make_call(ops);
-
-	LOCAL_USER_REMOVE(u);
-
+	ast_module_user_remove(u);
 	return rc;
 }
 
@@ -433,6 +512,7 @@ static int voicechangedial_app_exec(struct ast_channel *chan, void *data)
 	struct voicechangedial_ops ops;
 
 	memset(&ops, 0, sizeof(ops));
+	ops.pitchdelta = 5.0;
 	ops.chan = chan;
 
 	if (ast_strlen_zero(data)) {
@@ -456,34 +536,95 @@ static int voicechangedial_app_exec(struct ast_channel *chan, void *data)
 		if (ast_app_parse_options(voicechangedial_options, &opts, opt_args, args.options))
 			return -1;
 	}
-	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_TIMEOUT) && !ast_strlen_zero(opt_args[OPT_ARG_VOICECHANGEDIAL_TIMEOUT])) {
-		ops.options |= APP_VOICECHANGEDIAL_TIMEOUT;
-		ops.timeout = strtol(opt_args[OPT_ARG_VOICECHANGEDIAL_TIMEOUT], NULL, 10);
+
+	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_PEEREFFECT) ? APP_VOICECHANGEDIAL_PEEREFFECT : 0;
+	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_DYNAMIC_DEPRECATED)) {
+		ops.options |= APP_VOICECHANGEDIAL_DYNAMIC_DEPRECATED;
+		if ((ops.options & APP_VOICECHANGEDIAL_PEEREFFECT) == APP_VOICECHANGEDIAL_PEEREFFECT) {
+			ops.peer_dtmfactions[ASCII2DTMF('*')] = DTMFACTION_LOWERPITCH;
+			ops.peer_dtmfactions[ASCII2DTMF('#')] = DTMFACTION_RAISEPITCH;
+		} else {
+			ops.chan_dtmfactions[ASCII2DTMF('*')] = DTMFACTION_LOWERPITCH;
+			ops.chan_dtmfactions[ASCII2DTMF('#')] = DTMFACTION_RAISEPITCH;
+		}
 	}
+	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_HANGUP_DEPRECATED)) {
+		ops.options |= APP_VOICECHANGEDIAL_HANGUP_DEPRECATED;
+		ops.chan_dtmfactions[ASCII2DTMF('*')] = DTMFACTION_HANGUP;
+	}
+	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_SUICIDE_DEPRECATED)) {
+		ops.options |= APP_VOICECHANGEDIAL_SUICIDE_DEPRECATED;
+		ops.peer_dtmfactions[ASCII2DTMF('*')] = DTMFACTION_HANGUP;
+	}
+
 	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_PITCH) && !ast_strlen_zero(opt_args[OPT_ARG_VOICECHANGEDIAL_PITCH])) {
 		ops.options |= APP_VOICECHANGEDIAL_PITCH;
 		ops.pitch = strtof(opt_args[OPT_ARG_VOICECHANGEDIAL_PITCH], NULL);
 	} else
 		ops.pitch = -5.0;
+	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_TIMEOUT) && !ast_strlen_zero(opt_args[OPT_ARG_VOICECHANGEDIAL_TIMEOUT])) {
+		ops.options |= APP_VOICECHANGEDIAL_TIMEOUT;
+		ops.timeout = strtol(opt_args[OPT_ARG_VOICECHANGEDIAL_TIMEOUT], NULL, 10);
+	}
 	if (ops.timeout > 0)
 		ops.timeout *= 1000;
 	else
 		ops.timeout = 60000;
-
-	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_PEEREFFECT) ? APP_VOICECHANGEDIAL_PEEREFFECT : 0;
-	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_DYNAMIC) ? APP_VOICECHANGEDIAL_DYNAMIC : 0;
-	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_HANGUP) ? APP_VOICECHANGEDIAL_HANGUP : 0;
-	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_SUICIDE) ? APP_VOICECHANGEDIAL_SUICIDE : 0;
+	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_DYNAMIC) && !ast_strlen_zero(opt_args[OPT_ARG_VOICECHANGEDIAL_DYNAMIC])) {
+		char *down, *up, *delta;
+		ops.options |= APP_VOICECHANGEDIAL_DYNAMIC;
+		down = ast_strdupa(opt_args[OPT_ARG_VOICECHANGEDIAL_DYNAMIC]);
+		if (!(up = strchr(down, ':'))) {
+			ast_log(LOG_ERROR, "Invalid D() argument format\n");
+			return -1;
+		}
+		*up++ = '\0';
+		if ((delta = strchr(up, ':'))) {
+			*delta++ = '\0';
+			ops.pitchdelta = strtof(delta, NULL);
+			ast_verbose(VERBOSE_PREFIX_4 "Setting pitch delta to %f semitones\n",
+				    ops.pitchdelta);
+		}
+		if (strlen(down) != 1 || !ISDTMFDIGIT(down[0])) {
+			ast_log(LOG_ERROR, "Invalid DTMF digit for D(down)\n");
+			return -1;
+		}
+		if (strlen(up) != 1 || !ISDTMFDIGIT(up[0])) {
+			ast_log(LOG_ERROR, "Invalid DTMF digit for D(up)\n");
+			return -1;
+		}
+		if ((ops.options & APP_VOICECHANGEDIAL_PEEREFFECT) == APP_VOICECHANGEDIAL_PEEREFFECT) {
+			ops.peer_dtmfactions[ASCII2DTMF(down[0])] = DTMFACTION_LOWERPITCH;
+			ops.peer_dtmfactions[ASCII2DTMF(up[0])]   = DTMFACTION_RAISEPITCH;
+		} else {
+			ops.chan_dtmfactions[ASCII2DTMF(down[0])] = DTMFACTION_LOWERPITCH;
+			ops.chan_dtmfactions[ASCII2DTMF(up[0])]   = DTMFACTION_RAISEPITCH;
+		}
+	}
+	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_HANGUP) && !ast_strlen_zero(opt_args[OPT_ARG_VOICECHANGEDIAL_HANGUP])) {
+		const char *s;
+		ops.options |= APP_VOICECHANGEDIAL_HANGUP;
+		s = opt_args[OPT_ARG_VOICECHANGEDIAL_HANGUP];
+		if (strlen(s) != 1 || !ISDTMFDIGIT(s[0])) {
+			ast_log(LOG_ERROR, "Invalid DTMF digit for H()\n");
+			return -1;
+		}
+		ops.chan_dtmfactions[ASCII2DTMF(s[0])] = DTMFACTION_HANGUP;
+	}
+	if (ast_test_flag(&opts, APP_VOICECHANGEDIAL_SUICIDE) && !ast_strlen_zero(opt_args[OPT_ARG_VOICECHANGEDIAL_SUICIDE])) {
+		const char *s;
+		ops.options |= APP_VOICECHANGEDIAL_SUICIDE;
+		s = opt_args[OPT_ARG_VOICECHANGEDIAL_SUICIDE];
+		if (strlen(s) != 1 || !ISDTMFDIGIT(s[0])) {
+			ast_log(LOG_ERROR, "Invalid DTMF digit for H()\n");
+			return -1;
+		}
+		ops.peer_dtmfactions[ASCII2DTMF(s[0])] = DTMFACTION_HANGUP;
+	}
 
 	rc = voicechangedial_exec(&ops);
 
 	return rc;
-}
-
-int unload_module(void)
-{
-	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
 }
 
 int load_module(void)
@@ -491,10 +632,13 @@ int load_module(void)
 	return ast_register_application(app, voicechangedial_app_exec, synopsis, desc);
 }
 
-char *description(void)
+int unload_module(void)
 {
-	return tdesc;
+	ast_module_user_hangup_all();
+	return ast_unregister_application(app);
 }
+
+#ifdef _ASTERISK_1_2_
 
 int usecount(void)
 {
@@ -507,3 +651,14 @@ char *key()
 {
 	return ASTERISK_GPL_KEY;
 }
+
+char *description(void)
+{
+	return "Voice Changer Dial Application";
+}
+
+#else /* #ifdef _ASTERISK_1_2_ */
+
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Voice Changer Dial Application");
+
+#endif /* #ifdef _ASTERISK_1_2_ */

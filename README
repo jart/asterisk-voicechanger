@@ -9,9 +9,9 @@
          /.'`\ :;    /'       `-.
         -`    |     |
               :.; : |             Asterisk Voice Changer
-              |:    |                  Version o.5
+              |:    |                  Version o.5.1
               |     |
-              :. :  |   Copyright (c) 2005-2006 J.A. Roberts Tunney
+              :. :  |   Copyright (c) 2005-2007 J.A. Roberts Tunney
             .jgs    ;            Keep it open source pigs
             /:::.    `\
 ----------------------------------------------------------------------
@@ -33,11 +33,9 @@ not perfect due to the fact that Asterisk does not properly abstract
 dial and bridging functionality.
 
 ----------------------------------------------------------------------
-USAGE INSTRUCTIONS
+MANUAL
 ----------------------------------------------------------------------
 
-When making a call, you may press * to lower the pitch of your voice,
-and # to raise it.
 
 ----------------------------------------------------------------------
 
