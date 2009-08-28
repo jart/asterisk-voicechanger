@@ -1,6 +1,6 @@
 /*
  * Voice Changer for Asterisk 1.2
- * Version 0.4
+ * Version 0.4.1
  *
  * Copyright (C) 2005-2006 J.A. Roberts Tunney
  *
@@ -47,7 +47,6 @@ static char *desc = "\n"
 "\n"
 "Options:\n"
 "  h    -- Hangup if the call was successful\n"
-"  r    -- Indicate 'ringing' to the caller\n"
 "  p    -- Apply effect to peer channel instead\n"
 "  P(f) -- Voice pitch in semitones.  Negative is lower, positive\n"
 "          is higher.  Default is -5.0\n"
@@ -56,10 +55,9 @@ static char *desc = "\n"
 ;
 
 #define APP_VOICECHANGEDIAL_HANGUP     (1 << 0)
-#define APP_VOICECHANGEDIAL_RINGING    (1 << 1)
-#define APP_VOICECHANGEDIAL_PITCH      (1 << 2)
-#define APP_VOICECHANGEDIAL_TIMEOUT    (1 << 3)
-#define APP_VOICECHANGEDIAL_PEEREFFECT (1 << 4)
+#define APP_VOICECHANGEDIAL_PITCH      (1 << 1)
+#define APP_VOICECHANGEDIAL_TIMEOUT    (1 << 2)
+#define APP_VOICECHANGEDIAL_PEEREFFECT (1 << 3)
 
 enum {
 	OPT_ARG_VOICECHANGEDIAL_PITCH = 0,
@@ -70,7 +68,6 @@ enum {
 
 AST_APP_OPTIONS(voicechangedial_options, {
 	AST_APP_OPTION('h', APP_VOICECHANGEDIAL_HANGUP),
-	AST_APP_OPTION('r', APP_VOICECHANGEDIAL_RINGING),
 	AST_APP_OPTION('p', APP_VOICECHANGEDIAL_PEEREFFECT),
 	AST_APP_OPTION_ARG('P', APP_VOICECHANGEDIAL_PITCH, OPT_ARG_VOICECHANGEDIAL_PITCH),
 	AST_APP_OPTION_ARG('T', APP_VOICECHANGEDIAL_TIMEOUT, OPT_ARG_VOICECHANGEDIAL_TIMEOUT),
@@ -186,7 +183,6 @@ static int bridge_audio(const struct voicechangedial_ops *ops, struct ast_channe
  */
 static int wait_for_answer(const struct voicechangedial_ops *ops, struct ast_channel *peer, int timeout, char *status, int len)
 {
-	int subclass;
 	struct ast_frame *f;
 
 	for (;;) {
@@ -195,6 +191,8 @@ static int wait_for_answer(const struct voicechangedial_ops *ops, struct ast_cha
 			ast_log(LOG_NOTICE, "Caller canceled call\n");
 			return 0;
 		}
+		if (ops->chan->sched)
+			ast_sched_runq(ops->chan->sched);
 		timeout = ast_waitfor(peer, timeout);
 		if (timeout < 0) {
 			ast_log(LOG_NOTICE, "ast_waitfor() error\n");
@@ -209,27 +207,34 @@ static int wait_for_answer(const struct voicechangedial_ops *ops, struct ast_cha
 			ast_log(LOG_NOTICE, "ast_read() failed\n");
 			return -1;
 		}
-		if (f->frametype != AST_FRAME_CONTROL) {
-			ast_frfree(f);
-			continue;
+		switch (f->frametype) {
+		case AST_FRAME_VOICE:
+			if (ast_write(ops->chan, f))
+				ast_log(LOG_NOTICE, "Unable to forward frame\n");
+			break;
+		case AST_FRAME_CONTROL:
+			switch (f->subclass) {
+			case AST_CONTROL_RINGING:
+				ast_indicate(ops->chan, AST_CONTROL_RINGING);
+				break;
+			case AST_CONTROL_BUSY:
+				snprintf(status, len, "BUSY");
+				ast_frfree(f);
+				return 0;
+			case AST_CONTROL_CONGESTION:
+				snprintf(status, len, "CONGESTION");
+				ast_frfree(f);
+				return 0;
+			case AST_CONTROL_ANSWER:
+				snprintf(status, len, "ANSWERED");
+				if (option_verbose > 3)
+					ast_verbose(VERBOSE_PREFIX_4 "Call was answered!\n");
+				ast_frfree(f);
+				return 1;
+			}
+			break;
 		}
-		subclass = f->subclass;
 		ast_frfree(f);
-
-		switch (subclass) {
-		case AST_CONTROL_RINGING:
-			continue;
-		case AST_CONTROL_BUSY:
-			snprintf(status, len, "BUSY");
-			return 0;
-		case AST_CONTROL_CONGESTION:
-			snprintf(status, len, "CONGESTION");
-			return 0;
-		case AST_CONTROL_ANSWER:
-			snprintf(status, len, "ANSWERED");
-			ast_log(LOG_NOTICE, "Call was answered!\n");
-			return 1;
-		}
 	}
 }
 
@@ -244,7 +249,6 @@ static int initiate_call(const struct voicechangedial_ops *ops, struct ast_chann
 
 	/* copy crap over from chan to peer, why isn't there a core function for this? */
 	ast_channel_inherit_variables(chan, peer);
-	ast_set_callerid(peer, chan->cid.cid_name, chan->cid.cid_num, chan->cid.cid_num);
 	ast_copy_string(peer->language, chan->language, sizeof(peer->language));
 	ast_copy_string(peer->accountcode, chan->accountcode, sizeof(peer->accountcode));
 	peer->cdrflags = chan->cdrflags;
@@ -259,17 +263,27 @@ static int initiate_call(const struct voicechangedial_ops *ops, struct ast_chann
 	peer->transfercapability = chan->transfercapability;
 	peer->appl = app;
 	peer->data = ast_strdupa(chan->name);
+	if (chan->cid.cid_num) {
+		peer->cid.cid_num = strdup(chan->cid.cid_num);
+		if (!peer->cid.cid_num)
+			ast_log(LOG_WARNING, "Out of memory\n");
+	}
+	if (chan->cid.cid_name) {
+		peer->cid.cid_name = strdup(chan->cid.cid_name);
+		if (!peer->cid.cid_name)
+			ast_log(LOG_WARNING, "Out of memory\n");
+	}
+	ast_copy_string(peer->accountcode, chan->accountcode, sizeof(peer->accountcode));
+	peer->cdrflags = chan->cdrflags;
 
 	/* call the mofo */
-	if ((ops->options & APP_VOICECHANGEDIAL_RINGING) == APP_VOICECHANGEDIAL_RINGING) {
-		ast_indicate(chan, AST_CONTROL_RINGING);
-	}
 	if (chan->cdr)
 		ast_cdr_setdestchan(chan->cdr, peer->name);
 	if (ast_call(peer, ops->dest, 0) < 0) {
 		ast_log(LOG_ERROR, "ast_call() failed\n");
 		return -1;
 	}
+
 	res = wait_for_answer(ops, peer, ops->timeout, status, len);
 	if (res <= 0)
 		return res;
@@ -338,7 +352,8 @@ static int make_call(const struct voicechangedial_ops *ops)
 		else
 			ast_cdr_failed(ops->chan->cdr);
 		pbx_builtin_setvar_helper(ops->chan, "DIALSTATUS", status);
-		ast_log(LOG_NOTICE, "Exiting with DIALSTATUS=%s.\n", status);
+		if (option_verbose > 3)
+			ast_verbose(VERBOSE_PREFIX_4 "Exiting with DIALSTATUS=%s.\n", status);
 	} else
 		ast_cdr_failed(ops->chan->cdr);
 
@@ -422,7 +437,6 @@ static int voicechangedial_app_exec(struct ast_channel *chan, void *data)
 	else
 		ops.timeout = 60000;
 	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_HANGUP) ? APP_VOICECHANGEDIAL_HANGUP : 0;
-	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_RINGING) ? APP_VOICECHANGEDIAL_RINGING : 0;
 	ops.options |= ast_test_flag(&opts, APP_VOICECHANGEDIAL_PEEREFFECT) ? APP_VOICECHANGEDIAL_PEEREFFECT : 0;
 
 	rc = voicechangedial_exec(&ops);

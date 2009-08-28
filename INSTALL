@@ -9,7 +9,7 @@
          /.'`\ :;    /'       `-.
         -`    |     |
               :.; : |             Asterisk Voice Changer
-              |:    |                  Version o.4
+              |:    |                 Version o.4.1
               |     |
               :. :  |   Copyright (c) 2005-2006 J.A. Roberts Tunney
             .jgs    ;            Keep it open source pigs
@@ -31,13 +31,9 @@ REQUIREMENTS
 BINARY INSTALLATION
 ----------------------------------------------------------------------
 
-Run the following commands while inside the source directory for this
-program.
-
-	make installbin
-
-All the above command does is copies the module library files to the
-default Asterisk module dir: /usr/lib/asterisk/modules
+Check out the binaries folder.  Find the one that's right for you and
+copy it to /usr/lib/asterisk/modules.  Be sure to rename it to:
+app_voicechangedial.so
 
 ----------------------------------------------------------------------
 INSTALLATION FROM SOURCE
@@ -46,6 +42,7 @@ INSTALLATION FROM SOURCE
 Run the following commands while inside the source directory for this
 program.
 
+	make clean
 	make
 	make install
 
