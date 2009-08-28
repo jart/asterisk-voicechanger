@@ -1,0 +1,75 @@
+              .--.                              .--.
+            .'(`                               /  ..\
+         __.>\ '.  _.---,._,'             ____.'  _o/
+       /.--.  : |/' _.--.<                '--.     |.__
+    _..-'    `\     /'     `'             _.-'     /--'
+     >_.-``-. `Y  /' _.---._____     _.--'        /
+    '` .-''. \|:  \.'   ___, .-'`   ~'--....___.-'
+     .'--._ `-:  \/   /'    \\
+         /.'`\ :;    /'       `-.
+        -`    |     |
+              :.; : |             Asterisk Voice Changer
+              |:    |                  Version o.4
+              |     |
+              :. :  |   Copyright (c) 2005-2006 J.A. Roberts Tunney
+            .jgs    ;            Keep it open source pigs
+            /:::.    `\
+----------------------------------------------------------------------
+
+J.A. Roberts Tunney <jtunney@lobstertech.com>
+http://www.lobstertech.com/code/voicechanger/
+
+----------------------------------------------------------------------
+DESCRIPTION
+----------------------------------------------------------------------
+
+This program is a voice changer module for Asterisk.  This allows you
+to change the pitch of you voice, or the voice of the called party in
+realtime, when making phone calls.
+
+The application, VoiceChangeDial, functions as a Dial() replacement.
+Although the behavior of this application seeks to mimic Dial(), it is
+not perfect due to the fact that Asterisk does not properly abstract
+dial and bridging functionality.
+
+----------------------------------------------------------------------
+USAGE INSTRUCTIONS
+----------------------------------------------------------------------
+
+When making a call, you may press * to lower the pitch of your voice,
+and # to raise it.
+
+----------------------------------------------------------------------
+
+               __                          ___           _aaa
+              d8888a,_                  a8888888a  __a8888888b
+             d8P   `88ba.               8P'~~~~Y88888P""~~~~88b
+            d8P     ~"Y88a____aaaa_____aP        88         Y88
+           d8P         ~Y88"8~~~~~~88888          8g         88
+          d8P                         88     ____ 88y__      88b
+          88                         a88   _a88~888"8M88a____888
+          88                         88P   88  a8"     `88888888b_
+          8P                         88    88 a88        88b    Y8,
+          88a                        Y8b     888L        888.    88P
+         aP                           Y8     _888      _a8P 8   a88
+        _8                             ~88a888~888_   a888yg'  a88'
+        88                               ~~~~    ~"8888       a88P
+       d8'                                           Y8,     888L
+       8E                                             88a___8"888
+      d8P                                              ~Y888   88L
+      88                                                        88
+      88                                                        88b
+  ____88a_      a8a                                           __881
+88""P~888       888b                              _         8888888888
+      888       888P                             d8b            88
+     _888b       ~           aaa.                888           d8P
+ a888~"Y88                  88888                "P         8aa888_
+        Y8                  Y88P"                             88""888a
+        _8g8                 ~~                              a88    ~~
+    __a8"88_                                              a_a88
+   88"'   "88g                                             "88g_
+   ~        `88a_                                        _a8'"Y88gg,
+               "888a_.                                _a88"'     ~88
+                  ~~"8888aaa_____               ___a888P'
+                          ~~""""""888888888888888888""~~~
+                                   ~~~~~~~~~~~

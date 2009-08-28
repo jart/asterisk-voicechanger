@@ -1,0 +1,10 @@
+syntax: glob
+*.o
+*.so
+*~
+*.rej
+*.orig
+.depend
+
+syntax: regexp
+(.*/)?\#[^/]*\#$
