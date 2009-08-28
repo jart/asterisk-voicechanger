@@ -1,7 +1,7 @@
 #
 # Asterisk Module Makefile Include
 #
-# Copyright (C) 2005-2007 J.A. Roberts Tunney
+# Copyright (C) 2005-2009 J.A. Roberts Tunney
 #
 # J.A. Roberts Tunney <jtunney@lobstertech.com>
 #
@@ -47,10 +47,10 @@ dist: clean
 	mv /tmp/$(NAME).tar.gz .
 
 start: install
-	for x in $(MODS); do asterisk -rx "load $$x" ; done
+	for x in $(MODS); do asterisk -rx "module load $$x" ; done
 
 stop:
-	for x in $(MODS); do asterisk -rx "unload $$x" ; done
+	for x in $(MODS); do asterisk -rx "module unload $$x" ; done
 
 restart: all stop start
 

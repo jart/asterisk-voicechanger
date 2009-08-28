@@ -1,7 +1,7 @@
 #
 # Asterisk Voice Changer Makefile
 #
-# Copyright (C) 2005-2007 J.A. Roberts Tunney
+# Copyright (C) 2005-2009 J.A. Roberts Tunney
 #
 # J.A. Roberts Tunney <jtunney@lobstertech.com>
 #
@@ -14,7 +14,7 @@ CC          = gcc
 PREFIX      = /usr
 MODULES_DIR = $(PREFIX)/lib/asterisk/modules
 
-MODS        = app_voicechangedial.so
+MODS        = app_voicechanger.so
 CFLAGS      = -O -g -D_GNU_SOURCE -shared -fpic
 LDFLAGS     = -lsoundtouch4c
 
