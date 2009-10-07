@@ -9,15 +9,15 @@
          /.'`\ :;    /'       `-.
         -`    |     |
               :.; : |             Asterisk Voice Changer
-              |:    |                  Version o.7
+              |:    |                  Version o.8
               |     |
               :. :  |     Copyright (c) 2005-2009 Lobstertech, Inc.
             .jgs    ;            Keep it open source pigs
             /:::.    `\
 ----------------------------------------------------------------------
 
-http://lobstertech.com/code/voicechanger/
-jtunney@lobstertech.com
+<http://lobstertech.com/code/voicechanger/>
+<jtunney@lobstertech.com>
 
 This program is a voice changer module for Asterisk.  This allows you to
 change the pitch of your voice in real time when placing VoIP calls.

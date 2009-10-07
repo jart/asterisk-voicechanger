@@ -1,9 +1,10 @@
 /*
- * Asterisk Voice Changer 0.7
+ * Asterisk Voice Changer
  *
  * Copyright (C) 2005-2009 Lobstertech, Inc.
  *
  * J.A. Roberts Tunney <jtunney@lobstertech.com>
+ * Clod Patry <cpatry@gmail.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License version 2.0.
@@ -12,28 +13,29 @@
  *
  */
 
-#define AST_MODULE "app_voicechanger"
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif
 
-#include "asterisk.h"
+#include <asterisk.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <asterisk/file.h>
+#include <asterisk/logger.h>
+#include <asterisk/channel.h>
+#include <asterisk/audiohook.h>
+#include <asterisk/pbx.h>
+#include <asterisk/module.h>
+#include <asterisk/lock.h>
+#include <asterisk/cli.h>
+#include <asterisk/options.h>
+#include <asterisk/app.h>
+#include <asterisk/linkedlists.h>
+#include <asterisk/utils.h>
 #include <soundtouch4c.h>
-
-#include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/channel.h"
-#include "asterisk/audiohook.h"
-#include "asterisk/pbx.h"
-#include "asterisk/module.h"
-#include "asterisk/lock.h"
-#include "asterisk/cli.h"
-#include "asterisk/options.h"
-#include "asterisk/app.h"
-#include "asterisk/linkedlists.h"
-#include "asterisk/utils.h"
 
 static const char *app = "VoiceChanger";
 static const char *synopsis = "Adjusts the pitch of your voice";
@@ -194,8 +196,6 @@ static int uninstall_vc(struct ast_channel *chan)
 {
 	struct ast_datastore *ds;
 	struct voice_changer *vc;
-	struct ast_audiohook *audiohook = NULL;
-	int found = 0;
 
 	ds = ast_channel_datastore_find(chan, &voice_change_ds, "VoiceChanger");
 	if (!ds) 

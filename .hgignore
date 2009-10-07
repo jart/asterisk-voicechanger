@@ -1,10 +1,29 @@
-syntax: glob
-*.o
-*.so
-*~
-*.rej
-*.orig
-.depend
 
+syntax: glob
+*.la
+*.lai
+*.lo
+*.o
+*.a
+*.so
+TAGS
+asterisk-voicechanger-*.tar.gz
+
+.deps
+.libs
+./config
+
+configure
+stamp-h1
+aclocal.m4
+autom4te.cache
+*.in
+config.h
+config.log
+config.status
+libtool
+Makefile
+
+# emacs garbage files
 syntax: regexp
 (.*/)?\#[^/]*\#$
