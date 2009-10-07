@@ -20,12 +20,4 @@ then
     exit 1
 fi
 
-if [[ $(grep '^ \* Version:' $SOUNDTOUCH4C) == "" ]]
-then
-    echo '----------------------------------------------------------------------'
-    echo 'Please install libsoundtouch4c version 0.4.0 or greater'
-    echo '----------------------------------------------------------------------'
-    exit 1
-fi
-
 exit 0

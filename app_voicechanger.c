@@ -49,9 +49,9 @@ static const char *stop_desc = ""
 "Removes the voice change effect from a channel, if there is any.\n"
 "";
 
-static struct soundtouch *soundtouch_create(float pitch)
+static struct soundtouch4c *soundtouch_create(float pitch)
 {
-	struct soundtouch *snd;
+	struct soundtouch4c *snd;
 
 	ast_log(LOG_DEBUG, "Creating SoundTouch object...\n");
 	snd = SoundTouch_construct();
@@ -70,7 +70,7 @@ static struct soundtouch *soundtouch_create(float pitch)
 }
 
 struct voice_changer {
-	struct soundtouch *st;
+	struct soundtouch4c *st;
 	struct ast_audiohook *ah;
 };
 
@@ -210,7 +210,7 @@ static int uninstall_vc(struct ast_channel *chan)
 	/* change uid of datastore so it doesn't conflict with voice changer instances */
 	free(ds->uid);
 	ds->uid = ast_malloc(32);
-	snprintf(ds->uid, 32, "VOICHG_%d", ast_random());
+	snprintf(ds->uid, 32, "VOICHG_%d", (int)ast_random());
 
 	return 0;
 }
