@@ -13,7 +13,7 @@
  *
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #  include <config.h>
 #endif
 
@@ -51,9 +51,9 @@ static const char *stop_desc = ""
 "Removes the voice change effect from a channel, if there is any.\n"
 "";
 
-static struct soundtouch4c *soundtouch_create(float pitch)
+static soundtouch4c_t soundtouch_create(float pitch)
 {
-	struct soundtouch4c *snd;
+	soundtouch4c_t snd;
 
 	ast_log(LOG_DEBUG, "Creating SoundTouch object...\n");
 	snd = SoundTouch_construct();
@@ -72,7 +72,7 @@ static struct soundtouch4c *soundtouch_create(float pitch)
 }
 
 struct voice_changer {
-	struct soundtouch4c *st;
+	soundtouch4c_t st;
 	struct ast_audiohook *ah;
 };
 

@@ -3,6 +3,7 @@
 AC_DEFUN([AC_PROG_ASTERISK], [
 
 AC_PATH_PROG([ASTERISK], [asterisk], :)
+AC_SUBST(ASTERISK)
 
 AC_CHECK_HEADER([asterisk/module.h],
         AC_DEFINE(HAS_ASTERISK, 1, Asterisk with headers is installed),

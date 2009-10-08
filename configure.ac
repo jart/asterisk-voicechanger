@@ -14,14 +14,19 @@ AC_DISABLE_STATIC
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
+AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_PROG_LIBTOOL
-AC_PROG_INSTALL
 AC_PROG_ASTERISK
 AC_LIB_SOUNDTOUCH4C
 
+# stuff
+AC_PATH_PROG([LDCONFIG], [ldconfig], :)
+AC_SUBST(LDCONFIG)
+AC_PATH_PROG([MERCURIAL], [hg], :)
+AC_SUBST(MERCURIAL)
+
 # Checks for header files.
-AC_HEADER_DIRENT
 AC_HEADER_STDC
 
 # Checks for typedefs, structures, and compiler characteristics.
