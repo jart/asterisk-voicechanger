@@ -29,7 +29,7 @@ app_voicechanger_la_LIBADD	= -lsoundtouch4c
 # if not running distcheck.  there *has* to be a less ugly way to do
 # this
 install-exec-hook:
-	@case $(abs_builddir) in \
+	@case "$(abs_builddir)" in \
 	  */_build*) \
 	    ;; \
 	  *) \
@@ -42,7 +42,7 @@ install-exec-hook:
 	esac;
 
 uninstall-hook:
-	@case $(abs_builddir) in \
+	@case "$(abs_builddir)" in \
 	  */_build*) \
 	    ;; \
 	  *) \
