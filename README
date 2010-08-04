@@ -1,3 +1,4 @@
+
               .--.                              .--.
             .'(`                               /  ..\
          __.>\ '.  _.---,._,'             ____.'  _o/
@@ -9,65 +10,58 @@
          /.'`\ :;    /'       `-.
         -`    |     |
               :.; : |             Asterisk Voice Changer
-              |:    |                  Version o.8
+              |:    |                  Version o.9
               |     |
-              :. :  |     Copyright (c) 2005-2009 Lobstertech, Inc.
-            .jgs    ;            Keep it open source pigs
+              :. :  |     Copyright (c) 2005-2010 J.A. Roberts Tunney
+            .jgs    ;             Keep it open source pigs
             /:::.    `\
 ----------------------------------------------------------------------
 
-<http://lobstertech.com/code/voicechanger/>
-<jtunney@lobstertech.com>
+Website: <http://lobstertech.com/code/voicechanger/>
+Email: <jtunney@lobstertech.com>
 
-This program is a voice changer module for Asterisk.  This allows you to
-change the pitch of your voice in real time when placing VoIP calls.
-This software is not intended to change the gender of your voice as no
-formant adjustments are not implemented.  This software however does an
-excellent job making you sound really creepy and oftentimes
-unrecognizable.  Furthermore this software is not intended to guarentee
-your privacy as pitch shifting is not a one-way algorithm and hence can
-be reversed.
+This is a module for Asterisk that can be used to alter the pitch of a
+person's voice in real time during a telephone conversation.
 
-This version uses the audio-hooks API built into Asterisk >1.4.18 and
-removes certain DTMF-related features made available in previous
-releases.  If you are using a previous version of Asterisk or want those
-features, please download release 0.6.  These features may be added
-back in slowly or you can send me a patch.
 
-This has only been tested with Asterisk 1.4.x.  I welcome your patches
-if this doesn't work with Asterisk 1.6.x
+What's New in 0.9?
+==================
 
-----------------------------------------------------------------------
-INSTALLATION
-----------------------------------------------------------------------
+- Support for 16khz voice.
 
-Requirements:
+- You are no longer required to install libsoundtouch4c.
 
- - Asterisk 1.4 and 1.6 (For Asterisk 1.2 support, use version 0.6)
- - Asterisk Development Headers
- - SoundTouch >= 1.3.1
- - libsoundtouch4c >= 0.5
+- Will no longer make horrible noise if you (or your distro
+  maintainers) compiled SoundTouch usings float samples.
 
-Run the following commands while inside the source directory for this
-program::
 
-  ./configure
+Installation
+============
+
+Requirements for this release:
+
+ - Asterisk 1.6+         (apt-get install asterisk-dev)
+ - SoundTouch >= 1.3.1   (apt-get install libsoundtouch-dev)
+
+Once you've installed the software listed above, run these commands::
+
   make
-  sudo make install
-  make restart
+  make install
+  asterisk -rx 'module load app_voicechanger.so'
+  asterisk -rx 'core show application VoiceChanger'
 
-If that worked, the module should now be loaded in to Asterisk next
-time it is restarted.  If you want to load the Jukebox application in
-to a running instance of Asterisk without restart, then issue this
-command::
 
-  make start
+Examples
+========
 
-If you make a change any of the code, you can recompile, intall, and
-reload all the modules in to Asterisk with one command::
+Add something like the following to your dialplan::
 
-  make restart
+  ; scary monster voice
+  exten => 9000,1,VoiceChanger(-5.0)
+  exten => 9000,2,Dial(sip/lolcat@example.com)
+  exten => 9000,3,StopVoiceChanger() ; not required
 
-To unload the modules::
-
-  make stop
+  ; chipmunk voice
+  exten => 9001,1,VoiceChanger(5.0)
+  exten => 9001,2,Dial(sip/lolcat@example.com)
+  exten => 9001,3,StopVoiceChanger() ; not required

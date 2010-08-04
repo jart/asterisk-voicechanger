@@ -1,29 +1,7 @@
 
 syntax: glob
-*.la
-*.lai
-*.lo
 *.o
-*.a
 *.so
-TAGS
-asterisk-voicechanger-*.tar.gz
-
-.deps
-.libs
-./config
-
-configure
-stamp-h1
-aclocal.m4
-autom4te.cache
-*.in
-config.h
-config.h.in~
-config.log
-config.status
-libtool
-Makefile
 
 # emacs garbage files
 syntax: regexp
