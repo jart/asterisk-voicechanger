@@ -27,12 +27,14 @@ person's voice in real time during a telephone conversation.
 What's New in 0.9?
 ==================
 
-- Support for 16khz voice.
+- Support for Asterisk 1.6+
 
-- You are no longer required to install libsoundtouch4c.
+- Easier to install.  libsoundtouch4c is no longer needed!
 
 - Will no longer make horrible noise if you (or your distro
   maintainers) compiled SoundTouch usings float samples.
+
+- Support for 16khz voice.
 
 
 Installation
