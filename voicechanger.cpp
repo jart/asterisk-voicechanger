@@ -42,7 +42,7 @@ static inline void slin_to_flin(float flin[],
 {
 	int n;
 	for (n = 0; n < samps; n++) {
-		flin[n] = (float)slin[n] * 32767.0;
+		flin[n] = (float)slin[n] / 32767.0;
 	}
 }
 
@@ -77,7 +77,7 @@ void vc_voice_change(void *st_, float *fbuf, int16_t *data,
 	st->putSamples(fbuf, samples);
 	if ((int)st->numSamples() >= samples) {
 		st->receiveSamples(fbuf, samples);
-		slin_to_flin(fbuf, data, samples);
+		flin_to_slin(data, fbuf, samples);
 	} else {
 		memset(data, 0, datalen);
 	}

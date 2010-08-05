@@ -108,14 +108,13 @@ static void voicechanger_free(void *data)
 	struct voicechanger *vc;
 	if (data) {
 		vc = (struct voicechanger *)data;
-		if (vc->ah) {
-			ast_free(vc->ah);
-		}
-		vc_soundtouch_free(vc->st8k);
-		vc_soundtouch_free(vc->st16k);
-		ast_free(vc);
-		ast_log(LOG_DEBUG, "freed voice changer resources\n");
+		vc_soundtouch_free(vc->st8k); vc->st8k = NULL;
+		vc_soundtouch_free(vc->st16k); vc->st16k = NULL;
+		ast_audiohook_detach(vc->ah);
+		ast_audiohook_destroy(vc->ah);
+		ast_free(data);
 	}
+	ast_log(LOG_DEBUG, "freed voice changer resources\n");
 }
 
 static int install_vc(struct ast_channel *chan, float pitch)
@@ -123,6 +122,7 @@ static int install_vc(struct ast_channel *chan, float pitch)
 	struct ast_datastore *ds;
 	struct voicechanger *vc;
 
+	ast_log(LOG_DEBUG, "pitch is %f\n", pitch);
 	if (-0.1 < pitch && pitch < 0.1) {
 		return 0;
 	}
@@ -185,19 +185,14 @@ static int voicechanger_exec(struct ast_channel *chan, void *data)
 static int uninstall_vc(struct ast_channel *chan)
 {
 	struct ast_datastore *ds;
-	struct voicechanger *vc;
 	ast_log(LOG_DEBUG, "Detaching Voice Changer from channel...\n");
 	ast_channel_lock(chan);
 	ds = ast_channel_datastore_find(chan, dsinfo, app);
-	ast_channel_unlock(chan);
 	if (ds) {
-		vc = (struct voicechanger *)ds->data;
-		if (ast_audiohook_detach_source(chan, app) != 0) {
-			ast_log(LOG_WARNING, "could not find audiohook :(\n");
-		}
-	} else {
-		ast_log(LOG_NOTICE, "voicechanger doesn't seem attached\n");
+		ast_channel_datastore_remove(chan, ds);
+		ast_datastore_free(ds);
 	}
+	ast_channel_unlock(chan);
 	return 0;
 }
 
