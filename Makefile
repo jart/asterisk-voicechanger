@@ -1,4 +1,3 @@
-
 CFLAGS = -g -O2 -shared -fPIC -Wall -pedantic
 LDFLAGS = -lSoundTouch
 
