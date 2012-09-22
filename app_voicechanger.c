@@ -64,7 +64,6 @@ static int audio_callback(struct ast_audiohook *audiohook,
     }
 
     ast_channel_lock(chan);
-
     if (!(ds = ast_channel_datastore_find(chan, dsinfo, app)) ||
         !(vc = (struct voicechanger *)ds->data) ||
         !vc->st8k || !vc->st16k) {
@@ -72,15 +71,15 @@ static int audio_callback(struct ast_audiohook *audiohook,
         ast_log(LOG_WARNING, "where my data at\n");
         return 0;
     }
+    ast_channel_unlock(chan);
 
     if (frame->data.ptr == NULL || frame->samples == 0 ||
         frame->frametype != AST_FRAME_VOICE) {
-        ast_channel_unlock(chan);
         ast_log(LOG_WARNING, "got incompatible frame\n");
         return 0;
     }
 
-    switch (frame->subclass) {
+    switch (frame->subclass.format.id) {
     case AST_FORMAT_SLINEAR:
         st = vc->st8k;
         break;
@@ -88,17 +87,13 @@ static int audio_callback(struct ast_audiohook *audiohook,
         st = vc->st16k;
         break;
     default:
-        ast_channel_unlock(chan);
-        ast_log(LOG_WARNING, "bad audio type: %s\n",
-                ast_getformatname(frame->subclass));
+        ast_log(LOG_WARNING, "only 8khz and 16khz slinear audio supported!\n");
         return 0;
     }
 
     float fbuf[frame->samples];
     vc_voice_change(st, fbuf, (int16_t *)frame->data.ptr,
                     frame->samples, frame->datalen);
-
-    ast_channel_unlock(chan);
 
     return 0;
 }
@@ -138,7 +133,7 @@ static int install_vc(struct ast_channel *chan, float pitch)
     /* create audiohook */
     ast_log(LOG_DEBUG, "Creating AudioHook object...\n");
     if (ast_audiohook_init(vc->ah, AST_AUDIOHOOK_TYPE_MANIPULATE,
-                           "VoiceChanger")) {
+                           "VoiceChanger", 0)) {
         voicechanger_free(vc);
         ast_log(LOG_WARNING, "failed to make audiohook\n");
         return -1;
@@ -166,7 +161,7 @@ static int install_vc(struct ast_channel *chan, float pitch)
     return 0;
 }
 
-static int voicechanger_exec(struct ast_channel *chan, void *data)
+static int voicechanger_exec(struct ast_channel *chan, const char *data)
 {
     int rc;
     struct ast_module_user *u;
@@ -196,7 +191,7 @@ static int uninstall_vc(struct ast_channel *chan)
     return 0;
 }
 
-static int stop_voicechanger_exec(struct ast_channel *chan, void *data)
+static int stop_voicechanger_exec(struct ast_channel *chan, const char *data)
 {
     int rc;
     struct ast_module_user *u;

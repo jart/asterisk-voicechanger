@@ -62,7 +62,7 @@ void vc_voice_change(void *st_, float *fbuf, int16_t *data,
 {
     SoundTouch *st = (SoundTouch *)st_;
 
-#if defined(INTEGER_SAMPLES)
+#if defined(INTEGER_SAMPLES) || defined(SOUNDTOUCH_INTEGER_SAMPLES)
 
     st->putSamples(data, samples);
     if (st->numSamples() >= samples) {
@@ -71,7 +71,7 @@ void vc_voice_change(void *st_, float *fbuf, int16_t *data,
         memset(data, 0, datalen);
     }
 
-#elif defined(FLOAT_SAMPLES)
+#elif defined(FLOAT_SAMPLES) || defined(SOUNDTOUCH_FLOAT_SAMPLES)
 
     slin_to_flin(fbuf, data, samples);
     st->putSamples(fbuf, samples);
