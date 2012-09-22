@@ -24,19 +24,6 @@ This is a module for Asterisk that can be used to alter the pitch of a
 person's voice in real time during a telephone conversation.
 
 
-What's New in 0.9?
-==================
-
-- Support for Asterisk 1.6+
-
-- Easier to install.  libsoundtouch4c is no longer needed!
-
-- Will no longer make horrible noise if you (or your distro
-  maintainers) compiled SoundTouch usings float samples.
-
-- Support for 16khz voice.
-
-
 Installation
 ============
 
