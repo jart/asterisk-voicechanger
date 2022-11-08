@@ -32,9 +32,11 @@ Requirements for this release:
  - Asterisk 10+
  - SoundTouch >= 1.3.1   (apt-get install libsoundtouch-dev)
  - make sure tha Asterisk Modules exist at /usr/include/asterisk ; if not run the following command :
+ 
 ```
-    sudo cp -R /Path/to/asterisk-20/include/asterisk /usr/include
+    cp -R /Path/to/asterisk-20/include/asterisk /usr/include 
 ```
+
 If you're running Asterisk 1.6, run: git checkout 8428491e2b
 
 Asterisk 1.8 isn't supported at this time.
