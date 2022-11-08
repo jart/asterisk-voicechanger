@@ -54,12 +54,15 @@ Examples
 
 Add something like the following to your dialplan::
 
-  ; scary monster voice
+  #### scary monster voice
+```
   exten => 9000,1,VoiceChanger(-5.0)
   exten => 9000,2,Dial(sip/lolcat@example.com)
   exten => 9000,3,StopVoiceChanger() ; not required
-
-  ; chipmunk voice
+```
+  #### chipmunk voice
+```  
   exten => 9001,1,VoiceChanger(5.0)
   exten => 9001,2,Dial(sip/lolcat@example.com)
   exten => 9001,3,StopVoiceChanger() ; not required
+```
