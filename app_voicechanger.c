@@ -10,6 +10,9 @@
  */
 
 #define AST_MODULE "app_voicechanger"
+#define AST_MODULE_SELF_SYM __internal_my_module_self
+#define ast_calloc(n, x) calloc(n, x)
+#define ast_free(x) free(x)
 
 #include <asterisk.h>
 #include <asterisk/file.h>
@@ -25,6 +28,9 @@
 #include <asterisk/linkedlists.h>
 #include <asterisk/utils.h>
 #include <asterisk/format_cache.h>
+#include "asterisk/inline_api.h"
+#include "asterisk/vector.h"
+#include <stdlib.h>
 
 #include "voicechanger.h"
 
@@ -121,7 +127,7 @@ static int install_vc(struct ast_channel *chan, float pitch)
     }
 
     /* create soundtouch object */
-    vc = ast_calloc(1, sizeof(struct voicechanger));
+    vc = ast_calloc(1, sizeof(*vc));
     if (!(vc->st8k = vc_soundtouch_create(8000, pitch)) ||
         !(vc->st16k = vc_soundtouch_create(16000, pitch))) {
         ast_log(LOG_ERROR, "failed to make soundtouch\n");
