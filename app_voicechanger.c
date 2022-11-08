@@ -10,6 +10,9 @@
  */
 
 #define AST_MODULE "app_voicechanger"
+#define AST_MODULE_SELF_SYM __internal_my_module_self
+#define ast_calloc(n, x) calloc(n, x)
+#define ast_free(x) free(x)
 
 #include <asterisk.h>
 #include <asterisk/file.h>
@@ -24,6 +27,10 @@
 #include <asterisk/app.h>
 #include <asterisk/linkedlists.h>
 #include <asterisk/utils.h>
+#include <asterisk/format_cache.h>
+#include "asterisk/inline_api.h"
+#include "asterisk/vector.h"
+#include <stdlib.h>
 
 #include "voicechanger.h"
 
@@ -79,14 +86,11 @@ static int audio_callback(struct ast_audiohook *audiohook,
         return 0;
     }
 
-    switch (frame->subclass.format.id) {
-    case AST_FORMAT_SLINEAR:
+    if (ast_format_cmp(frame->subclass.format, ast_format_slin) == AST_FORMAT_CMP_EQUAL)
         st = vc->st8k;
-        break;
-    case AST_FORMAT_SLINEAR16:
+    else if (ast_format_cmp(frame->subclass.format, ast_format_slin16) == AST_FORMAT_CMP_EQUAL)
         st = vc->st16k;
-        break;
-    default:
+    else {
         ast_log(LOG_WARNING, "only 8khz and 16khz slinear audio supported!\n");
         return 0;
     }
@@ -123,7 +127,7 @@ static int install_vc(struct ast_channel *chan, float pitch)
     }
 
     /* create soundtouch object */
-    vc = ast_calloc(1, sizeof(struct voicechanger));
+    vc = ast_calloc(1, sizeof(*vc));
     if (!(vc->st8k = vc_soundtouch_create(8000, pitch)) ||
         !(vc->st16k = vc_soundtouch_create(16000, pitch))) {
         ast_log(LOG_ERROR, "failed to make soundtouch\n");
