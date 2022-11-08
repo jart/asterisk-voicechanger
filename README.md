@@ -17,8 +17,8 @@
             /:::.    `\
 ----------------------------------------------------------------------
 
-Website: <http://lobstertech.com/code/voicechanger/>
-Email: <jtunney@lobstertech.com>
+-Website: <http://lobstertech.com/code/voicechanger/>
+-Email: <jtunney@lobstertech.com>
 
 This is a module for Asterisk that can be used to alter the pitch of a
 person's voice in real time during a telephone conversation.
