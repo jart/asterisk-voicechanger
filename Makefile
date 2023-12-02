@@ -1,4 +1,4 @@
-CFLAGS = -g -O2 -shared -fPIC -Wall -pedantic
+CFLAGS = -g -O2 -shared -fPIC -Wall -pedantic -DAST_MODULE_SELF_SYM="app_voicechanger"
 LDFLAGS = -lSoundTouch
 
 all: app_voicechanger.so
